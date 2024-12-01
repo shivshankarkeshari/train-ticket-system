@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package train;
+
+option go_package = "github.com/shiv.s.keshari/train-ticket-system/proto/train_proto";
+
+service TrainService {
+  rpc PurchaseTicket (PurchaseRequest) returns (PurchaseResponse);
+  rpc GetReceipt (GetReceiptRequest) returns (GetReceiptResponse);
+
+  rpc GetUsersBySection (GetUsersBySectionRequest) returns (GetUsersBySectionResponse);
+  rpc RemoveUser (RemoveUserRequest) returns (RemoveUserResponse);
+  rpc ModifyUserSeat (ModifyUserSeatRequest) returns (ModifyUserSeatResponse);
+}
+
+message User {
+  string first_name = 1;
+  string last_name = 2;
+  string email = 3;
+}
+
+message PurchaseRequest {
+  string from = 1;
+  string to = 2;
+  User user = 3;
+  string section = 4; // "A" or "B"
+}
+
+message PurchaseResponse {
+  string receipt_id = 1;
+  string from = 2;
+  string to = 3;
+  User user = 4;
+  string section = 5;
+  string seat = 6;
+  float price_paid = 7;
+}
+
+message GetReceiptRequest {
+  string receipt_id = 1;
+}
+
+message GetReceiptResponse {
+  string from = 1;
+  string to = 2;
+  User user = 3;
+  string section = 4;
+  string seat = 5;
+  float price_paid = 6;
+}
+
+message GetUsersBySectionRequest {
+  string section = 1;
+}
+
+message GetUsersBySectionResponse {
+  repeated string users = 1; // List of user emails
+}
+
+message RemoveUserRequest {
+  string email = 1;
+}
+
+message RemoveUserResponse {
+  string message = 1;
+}
+
+message ModifyUserSeatRequest {
+  string email = 1;
+  string new_section = 2;
+}
+
+message ModifyUserSeatResponse {
+  string message = 1;
+}
