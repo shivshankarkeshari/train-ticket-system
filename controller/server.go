@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 	pb "train-ticket-system/proto"
-
 )
 
 type InMemoryStorage struct {
@@ -17,17 +16,6 @@ type InMemoryStorage struct {
 type Seat struct {
 	SeatNumber int
 	Email      string
-}
-
-func NewInMemoryStorage() *InMemoryStorage {
-	return &InMemoryStorage{
-		sections: map[string][]*Seat{
-			"A": {},
-			"B": {},
-		},
-		users:    make(map[string]*pb.PurchaseResponse),
-		nextSeat: 1,
-	}
 }
 
 // AddUser allocates a seat and stores user information.
@@ -160,4 +148,15 @@ func (s *InMemoryStorage) ModifyUserSeat(email, newSection string) error {
 	receipt.Seat = fmt.Sprintf("%s-%d", newSection, seatNumber)
 
 	return nil
+}
+
+func NewInMemoryStorage() *InMemoryStorage {
+	return &InMemoryStorage{
+		sections: map[string][]*Seat{
+			"A": {},
+			"B": {},
+		},
+		users:    make(map[string]*pb.PurchaseResponse),
+		nextSeat: 1,
+	}
 }
