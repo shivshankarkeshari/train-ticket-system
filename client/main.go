@@ -19,12 +19,12 @@ func main() {
 	client:=pb.NewTrainServiceClient(conn)
 
 	// Purchase a ticket
+	log.Println("Purchasing a ticket...")
 	user := &pb.User{
 		FirstName: "Shiv",
 		LastName:  "Shankar",
 		Email:     "shiv.s.keshari@.com",
 	}
-	log.Println("Purchasing a ticket...")
 	purchaseResp, err := client.PurchaseTicket(context.Background(), &pb.PurchaseRequest{
 		From:    "London",
 		To:      "France",
@@ -56,36 +56,35 @@ func main() {
 	}
 	log.Printf("Users in section A: %v\n", usersResp.Users)
 
+	// Modify user's seat
+	log.Println("Modifying user's seat to section B...")
+	modifyResp, err := client.ModifyUserSeat(context.Background(), &pb.ModifyUserSeatRequest{
+		Email:      user.Email,
+		NewSection: "B",
+	})
+	if err != nil {
+		log.Fatalf("Error modifying user seat: %v", err)
+	}
+	log.Printf("Modify seat response: %s\n", modifyResp.Message)
 
-	// // Modify user's seat
-	// log.Println("Modifying user's seat to section B...")
-	// modifyResp, err := client.ModifyUserSeat(context.Background(), &proto.ModifyUserSeatRequest{
-	// 	Email:      user.Email,
-	// 	NewSection: "B",
-	// })
-	// if err != nil {
-	// 	log.Fatalf("Error modifying user seat: %v", err)
-	// }
-	// log.Printf("Modify seat response: %s\n", modifyResp.Message)
+	// Verify user is now in section B
+	log.Println("Getting users in section B...")
+	sectionBResp, err := client.GetUsersBySection(context.Background(), &pb.GetUsersBySectionRequest{
+		Section: "B",
+	})
+	if err != nil {
+		log.Fatalf("Error fetching users by section: %v", err)
+	}
+	log.Printf("Users in section B: %v\n", sectionBResp.Users)
 
-	// // Verify user is now in section B
-	// log.Println("Getting users in section B...")
-	// sectionBResp, err := client.GetUsersBySection(context.Background(), &proto.GetUsersBySectionRequest{
-	// 	Section: "B",
-	// })
-	// if err != nil {
-	// 	log.Fatalf("Error fetching users by section: %v", err)
-	// }
-	// log.Printf("Users in section B: %v\n", sectionBResp.Users)
-
-	// // Remove user from train
-	// log.Println("Removing user from train...")
-	// removeResp, err := client.RemoveUser(context.Background(), &proto.RemoveUserRequest{
-	// 	Email: user.Email,
-	// })
-	// if err != nil {
-	// 	log.Fatalf("Error removing user: %v", err)
-	// }
-	// log.Printf("Remove user response: %s\n", removeResp.Message)
+	// Remove user from train
+	log.Println("Removing user from train...")
+	removeResp, err := client.RemoveUser(context.Background(), &pb.RemoveUserRequest{
+		Email: user.Email,
+	})
+	if err != nil {
+		log.Fatalf("Error removing user: %v", err)
+	}
+	log.Printf("Remove user response: %s\n", removeResp.Message)
 	
 }

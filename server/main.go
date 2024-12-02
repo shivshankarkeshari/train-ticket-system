@@ -7,11 +7,9 @@ import (
 	"net"
 	"sync"
 	pb "train-ticket-system/proto"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-)
 
+	"google.golang.org/grpc"
+)
 
 type InMemoryStorage struct {
 	mu       sync.Mutex
@@ -33,7 +31,6 @@ var storage = &InMemoryStorage{
 	users:    make(map[string]*pb.PurchaseResponse),
 	nextSeat: 1,
 }
-
 
 // AddUser allocates a seat and stores user information.
 func (s *InMemoryStorage) AddUser(user *pb.User, section, from, to string) *pb.PurchaseResponse {
@@ -90,7 +87,6 @@ func (s *InMemoryStorage) GetReceipt(receiptID string) (*pb.GetReceiptResponse, 
 	return nil, fmt.Errorf("receipt not found")
 }
 
-
 // GetUsersBySection retrieves all users in a given section.
 func (s *InMemoryStorage) GetUsersBySection(section string) ([]string, error) {
 	s.mu.Lock()
@@ -108,6 +104,66 @@ func (s *InMemoryStorage) GetUsersBySection(section string) ([]string, error) {
 	return users, nil
 }
 
+// RemoveUser removes a user from the system by their email.
+func (s *InMemoryStorage) RemoveUser(email string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	receipt, exists := s.users[email]
+	if !exists {
+		return fmt.Errorf("user not found")
+	}
+
+	// Remove the seat
+	sectionSeats := s.sections[receipt.Section]
+	for i, seat := range sectionSeats {
+		if seat.Email == email {
+			s.sections[receipt.Section] = append(sectionSeats[:i], sectionSeats[i+1:]...)
+			break
+		}
+	}
+	// Remove the user
+	delete(s.users, email)
+	return nil
+}
+
+// ModifyUserSeat modifies a user's seat and section.
+func (s *InMemoryStorage) ModifyUserSeat(email, newSection string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	receipt, exists := s.users[email]
+	if !exists {
+		return fmt.Errorf("user not found")
+	}
+
+	// Remove the seat from the current section
+	currentSectionSeats := s.sections[receipt.Section]
+	for i, seat := range currentSectionSeats {
+		if seat.Email == email {
+			s.sections[receipt.Section] = append(currentSectionSeats[:i], currentSectionSeats[i+1:]...)
+			break
+		}
+	}
+
+	// Assign a new seat
+	seatNumber := s.nextSeat
+	s.nextSeat++
+	newSeat := &Seat{
+		SeatNumber: seatNumber,
+		Email:      email,
+	}
+
+	// Add the seat to the new section
+	s.sections[newSection] = append(s.sections[newSection], newSeat)
+
+	// Update the user's receipt
+	receipt.Section = newSection
+	receipt.Seat = fmt.Sprintf("%s-%d", newSection, seatNumber)
+
+	return nil
+}
+
 type server struct {
 	pb.UnsafeTrainServiceServer
 }
@@ -117,11 +173,13 @@ func (s *server) PurchaseTicket(ctx context.Context, req *pb.PurchaseRequest) (*
 	receipt := storage.AddUser(req.User, req.Section, req.From, req.To)
 	return receipt, nil
 }
+
 func (s *server) GetReceipt(ctx context.Context, req *pb.GetReceiptRequest) (*pb.GetReceiptResponse, error) {
 	fmt.Println("->>---> GetReceipt")
 	receiptID := req.ReceiptId
 	return storage.GetReceipt(receiptID)
 }
+
 func (s *server) GetUsersBySection(ctx context.Context, req *pb.GetUsersBySectionRequest) (*pb.GetUsersBySectionResponse, error) {
 	fmt.Println("->>---> GetUsersBySection")
 	section := req.Section
@@ -129,21 +187,26 @@ func (s *server) GetUsersBySection(ctx context.Context, req *pb.GetUsersBySectio
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch users for section %s: %v", section, err)
 	}
-	// Build the response.
-	response := &pb.GetUsersBySectionResponse{
-		Users: users,
+	return &pb.GetUsersBySectionResponse{Users: users}, nil
+}
+
+func (s *server) RemoveUser(ctx context.Context, req *pb.RemoveUserRequest) (*pb.RemoveUserResponse, error) {
+	fmt.Println("->>---> RemoveUser")
+	err:=storage.RemoveUser(req.Email)
+	if err!=nil {
+		return nil, err
 	}
-	return response, nil
-}
-func (s *server) RemoveUser(context.Context, *pb.RemoveUserRequest) (*pb.RemoveUserResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RemoveUser not implemented")
-}
-func (s *server) ModifyUserSeat(context.Context, *pb.ModifyUserSeatRequest) (*pb.ModifyUserSeatResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ModifyUserSeat not implemented")
+	return &pb.RemoveUserResponse{Message: "user removed sucessfully"}, nil
 }
 
-// InMemoryStorage storage := NewInMemoryStorage()
-
+func (s *server) ModifyUserSeat(ctx context.Context, req *pb.ModifyUserSeatRequest) (*pb.ModifyUserSeatResponse, error) {
+	fmt.Println("->>---> ModifyUserSeat")
+	err := storage.ModifyUserSeat(req.Email, req.NewSection)
+	if err!=nil {
+		return nil, err
+	}
+	return &pb.ModifyUserSeatResponse{Message: "seat got changed"}, nil
+}
 
 func main() {
 	lis, err := net.Listen("tcp", ":9001")
@@ -151,7 +214,6 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	
-
 	grpcServer := grpc.NewServer()
 	pb.RegisterTrainServiceServer(grpcServer, &server{})
 
